@@ -176,6 +176,36 @@ class GearGenerator {
         // 將旋轉後的群組添加到主群組
         group.appendChild(rotatedGroup);
         
+        // 添加旋轉動畫
+        this.addRotationAnimation(rotatedGroup);
+        
+        // 添加參數文字說明
+        const textGroup = document.createElementNS(this.svgNS, "g");
+        
+        // 創建文字元素
+        const moduleText = document.createElementNS(this.svgNS, "text");
+        moduleText.setAttribute("x", -280);
+        moduleText.setAttribute("y", -260);
+        moduleText.setAttribute("fill", "#333");
+        moduleText.textContent = `模數: ${module}`;
+        textGroup.appendChild(moduleText);
+        
+        const teethText = document.createElementNS(this.svgNS, "text");
+        teethText.setAttribute("x", -280);
+        teethText.setAttribute("y", -240);
+        teethText.setAttribute("fill", "#333");
+        teethText.textContent = `齒數: ${teeth}`;
+        textGroup.appendChild(teethText);
+        
+        const angleText = document.createElementNS(this.svgNS, "text");
+        angleText.setAttribute("x", -280);
+        angleText.setAttribute("y", -220);
+        angleText.setAttribute("fill", "#333");
+        angleText.textContent = `壓力角: ${pressureAngle}°`;
+        textGroup.appendChild(angleText);
+        
+        group.appendChild(textGroup);
+        
         this.svg.appendChild(group);
     }
 
@@ -231,5 +261,65 @@ class GearGenerator {
         group.appendChild(startPoint);
         
         return group;
+    }
+
+    // 添加動畫控制方法
+    addRotationAnimation(group, speed = 18) {
+        let startTime = null;
+        let pauseTime = null;
+        let animationFrameId = null;
+        let currentRotation = 0;
+        
+        const playButton = document.getElementById('playButton');
+        const pauseButton = document.getElementById('pauseButton');
+        const stopButton = document.getElementById('stopButton');
+        
+        const animate = (currentTime) => {
+            if (!startTime) {
+                startTime = currentTime - (pauseTime || 0);
+            }
+            
+            const elapsed = currentTime - startTime;
+            currentRotation = (speed * elapsed / 1000) % 360;
+            
+            // 設置旋轉變換
+            group.setAttribute('transform', `rotate(${currentRotation})`);
+            
+            animationFrameId = requestAnimationFrame(animate);
+        };
+        
+        // 播放按鈕事件
+        playButton.addEventListener('click', () => {
+            playButton.style.display = 'none';
+            pauseButton.style.display = 'inline-block';
+            startTime = null;
+            animationFrameId = requestAnimationFrame(animate);
+        });
+        
+        // 暫停按鈕事件
+        pauseButton.addEventListener('click', () => {
+            pauseButton.style.display = 'none';
+            playButton.style.display = 'inline-block';
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+                pauseTime = currentRotation * 1000 / speed; // 保存當前時間點
+            }
+        });
+        
+        // 停止按鈕事件
+        stopButton.addEventListener('click', () => {
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+            }
+            pauseButton.style.display = 'none';
+            playButton.style.display = 'inline-block';
+            startTime = null;
+            pauseTime = null;
+            currentRotation = 0;
+            group.setAttribute('transform', `rotate(0)`);
+        });
+        
+        // 初始啟動動畫
+        playButton.click();
     }
 }
