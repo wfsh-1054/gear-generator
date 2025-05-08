@@ -208,18 +208,28 @@ class GearGenerator {
 
     // 創建SVG路徑
     createSvgPath(points, scale) {
-        let pathData = `M ${points[0].x * scale},${points[0].y * scale}`;
+        const group = document.createElementNS(this.svgNS, "g");
         
+        // 繪製漸開線路徑
+        let pathData = `M ${points[0].x * scale},${points[0].y * scale}`;
         for (let i = 1; i < points.length; i++) {
             pathData += ` L ${points[i].x * scale},${points[i].y * scale}`;
         }
-        
         const path = document.createElementNS(this.svgNS, "path");
         path.setAttribute("d", pathData);
         path.setAttribute("stroke", "blue");
         path.setAttribute("fill", "none");
         path.setAttribute("stroke-width", "1");
+        group.appendChild(path);
         
-        return path;
+        // 在起點添加紅色圓點
+        const startPoint = document.createElementNS(this.svgNS, "circle");
+        startPoint.setAttribute("cx", points[0].x * scale);
+        startPoint.setAttribute("cy", points[0].y * scale);
+        startPoint.setAttribute("r", "2");
+        startPoint.setAttribute("fill", "red");
+        group.appendChild(startPoint);
+        
+        return group;
     }
 }
