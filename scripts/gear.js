@@ -272,8 +272,11 @@ class GearGenerator {
             };
         };
         
+        // 先旋轉第一個點，作為綠色漸開線的起點
+        const rotatedFirstPoint = rotateMatrix(rotationAngle, points[0].x, -points[0].y);
+        
         // 繪製旋轉後的鏡射漸開線路徑（綠色）
-        let mirrorPathData = `M ${points[0].x * scale},${-points[0].y * scale}`;
+        let mirrorPathData = `M ${rotatedFirstPoint.x * scale},${rotatedFirstPoint.y * scale}`;
         for (let i = 1; i < points.length; i++) {
             const rotated = rotateMatrix(rotationAngle, points[i].x, -points[i].y);
             mirrorPathData += ` L ${rotated.x * scale},${rotated.y * scale}`;
@@ -294,10 +297,9 @@ class GearGenerator {
         group.appendChild(startPoint);
         
         // 在旋轉後的鏡射起點添加紅色圓點
-        const rotatedStart = rotateMatrix(rotationAngle, points[0].x, -points[0].y);
         const mirrorStartPoint = document.createElementNS(this.svgNS, "circle");
-        mirrorStartPoint.setAttribute("cx", rotatedStart.x * scale);
-        mirrorStartPoint.setAttribute("cy", rotatedStart.y * scale);
+        mirrorStartPoint.setAttribute("cx", rotatedFirstPoint.x * scale);
+        mirrorStartPoint.setAttribute("cy", rotatedFirstPoint.y * scale);
         mirrorStartPoint.setAttribute("r", "2");
         mirrorStartPoint.setAttribute("fill", "red");
         group.appendChild(mirrorStartPoint);
