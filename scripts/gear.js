@@ -9,7 +9,7 @@ class GearGenerator {
         }
     }
 
-    // 計算齒輪所有參數
+    // 1. 基本參數計算
     calculateGearParameters(module, teeth, pressureAngle) {
         const pitchDiameter = module * teeth;           // 節圓直徑
         const addendum = module;                        // 齒頂高
@@ -69,6 +69,7 @@ class GearGenerator {
     }
 
     // 創建網格
+    // 網格繪製相關方法
     createGrid(size, scale) {
         const group = document.createElementNS(this.svgNS, "g");
         const gridSize = size * scale; // 1公分 = size像素
@@ -109,6 +110,7 @@ class GearGenerator {
     }
 
     // 繪製齒輪
+    // 在drawGear方法中的文字說明部分
     drawGear(module, teeth, zoomFactor = 1.0, pressureAngle = 20) {
         const params = this.calculateGearParameters(module, teeth, pressureAngle);
         const scale = Math.min(250 / params.outerDiameter, 5) * zoomFactor;
@@ -242,72 +244,109 @@ class GearGenerator {
         return path;
     }
 
-    // 創建SVG路徑
-    createSvgPath(points, scale, teeth) {
-        const group = document.createElementNS(this.svgNS, "g");
-        
-        // 繪製原始漸開線路徑（藍色）
+    // 旋轉矩陣計算方法
+    rotatePoint(angle, x, y) {
+        const rad = angle * Math.PI / 180;
+        const cos = Math.cos(rad);
+        const sin = Math.sin(rad);
+        return {
+            x: x * cos - y * sin,
+            y: x * sin + y * cos
+        };
+    }
+
+    // 創建單條漸開線路徑
+    createInvoluteCurve(points, scale, color) {
+        const path = document.createElementNS(this.svgNS, "path");
         let pathData = `M ${points[0].x * scale},${points[0].y * scale}`;
         for (let i = 1; i < points.length; i++) {
             pathData += ` L ${points[i].x * scale},${points[i].y * scale}`;
         }
-        const path = document.createElementNS(this.svgNS, "path");
         path.setAttribute("d", pathData);
-        path.setAttribute("stroke", "blue");
+        path.setAttribute("stroke", color);
         path.setAttribute("fill", "none");
         path.setAttribute("stroke-width", "1");
-        group.appendChild(path);
+        return path;
+    }
+
+    // 創建起點標記
+    createStartPoint(x, y, scale) {
+        const point = document.createElementNS(this.svgNS, "circle");
+        point.setAttribute("cx", x * scale);
+        point.setAttribute("cy", y * scale);
+        point.setAttribute("r", "2");
+        point.setAttribute("fill", "red");
+        return point;
+    }
+
+    // 創建SVG路徑
+    createSvgPath(points, scale, teeth) {
+        const group = document.createElementNS(this.svgNS, "g");
         
-        // 計算旋轉角度（180/齒數 度）
+        // 創建單個齒形的群組
+        const toothGroup = document.createElementNS(this.svgNS, "g");
+        
+        // 添加原始漸開線（藍色）
+        toothGroup.appendChild(this.createInvoluteCurve(points, scale, "blue"));
+        
+        // 找到漸開線與節圓的交點
+        const baseRadius = points[0].x; // 基圓半徑（漸開線起點的x座標）
+        const pitchRadius = baseRadius / Math.cos(20 * Math.PI / 180); // 節圓半徑
+        
+        // 計算交點的展開角度
+        const intersectAngle = Math.sqrt((pitchRadius/baseRadius)**2 - 1);
+        
+        // 計算交點座標
+        const intersectPoint = this.calculateInvolutePoint(baseRadius, intersectAngle);
+        
+        // 在交點位置添加紅點
+        toothGroup.appendChild(this.createStartPoint(intersectPoint.x, intersectPoint.y, scale));
+        
+        // 計算鏡射點的角度（以交點為中心進行鏡射）
+        const mirrorPoints = points.map(point => {
+            // 計算點到原點的距離和角度
+            const distance = Math.sqrt(point.x * point.x + point.y * point.y);
+            const angle = Math.atan2(point.y, point.x);
+            
+            // 計算鏡射角度（以交點的角度為對稱軸）
+            const intersectPointAngle = Math.atan2(intersectPoint.y, intersectPoint.x);
+            const mirrorAngle = 2 * intersectPointAngle - angle;
+            
+            // 返回鏡射後的點
+            return {
+                x: distance * Math.cos(mirrorAngle),
+                y: distance * Math.sin(mirrorAngle)
+            };
+        });
+        
+        // 計算旋轉角度（180/齒數）
         const rotationAngle = 180 / teeth;
         
-        // 創建旋轉矩陣
-        const rotateMatrix = (angle, x, y) => {
-            const rad = angle * Math.PI / 180;
-            const cos = Math.cos(rad);
-            const sin = Math.sin(rad);
-            return {
-                x: x * cos - y * sin,
-                y: x * sin + y * cos
-            };
-        };
+        // 對鏡射後的點進行旋轉
+        const rotatedMirrorPoints = mirrorPoints.map(point => 
+            this.rotatePoint(rotationAngle, point.x, point.y)
+        );
         
-        // 先旋轉第一個點，作為綠色漸開線的起點
-        const rotatedFirstPoint = rotateMatrix(rotationAngle, points[0].x, -points[0].y);
+        // 添加旋轉後的漸開線（綠色）
+        toothGroup.appendChild(this.createInvoluteCurve(rotatedMirrorPoints, scale, "green"));
         
-        // 繪製旋轉後的鏡射漸開線路徑（綠色）
-        let mirrorPathData = `M ${rotatedFirstPoint.x * scale},${rotatedFirstPoint.y * scale}`;
-        for (let i = 1; i < points.length; i++) {
-            const rotated = rotateMatrix(rotationAngle, points[i].x, -points[i].y);
-            mirrorPathData += ` L ${rotated.x * scale},${rotated.y * scale}`;
+        // 計算每個齒的旋轉角度
+        const toothAngle = 360 / teeth;
+        
+        // 複製並旋轉齒形一圈
+        for (let i = 1; i < teeth; i++) {  // 從1開始，因為原始齒形已經存在
+            const rotatedToothGroup = toothGroup.cloneNode(true);
+            rotatedToothGroup.setAttribute("transform", `rotate(${i * toothAngle})`);
+            group.appendChild(rotatedToothGroup);
         }
-        const mirrorPath = document.createElementNS(this.svgNS, "path");
-        mirrorPath.setAttribute("d", mirrorPathData);
-        mirrorPath.setAttribute("stroke", "green");
-        mirrorPath.setAttribute("fill", "none");
-        mirrorPath.setAttribute("stroke-width", "1");
-        group.appendChild(mirrorPath);
         
-        // 在起點添加紅色圓點
-        const startPoint = document.createElementNS(this.svgNS, "circle");
-        startPoint.setAttribute("cx", points[0].x * scale);
-        startPoint.setAttribute("cy", points[0].y * scale);
-        startPoint.setAttribute("r", "2");
-        startPoint.setAttribute("fill", "red");
-        group.appendChild(startPoint);
-        
-        // 在旋轉後的鏡射起點添加紅色圓點
-        const mirrorStartPoint = document.createElementNS(this.svgNS, "circle");
-        mirrorStartPoint.setAttribute("cx", rotatedFirstPoint.x * scale);
-        mirrorStartPoint.setAttribute("cy", rotatedFirstPoint.y * scale);
-        mirrorStartPoint.setAttribute("r", "2");
-        mirrorStartPoint.setAttribute("fill", "red");
-        group.appendChild(mirrorStartPoint);
+        // 添加原始齒形到主群組
+        group.appendChild(toothGroup);
         
         return group;
     }
 
-    // 添加動畫控制方法
+    // 動畫控制
     addRotationAnimation(group, speed = 18) {
         let startTime = null;
         let pauseTime = null;
