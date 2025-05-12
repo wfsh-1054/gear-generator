@@ -169,8 +169,14 @@ class GearGenerator {
         const rotatedGroup = document.createElementNS(this.svgNS, "g");
         rotatedGroup.setAttribute("transform", `rotate(${rotationAngle * 180 / Math.PI})`);
         
+        // 將所有圓形添加到旋轉群組中
+        rotatedGroup.appendChild(rootCircle);
+        rotatedGroup.appendChild(baseCircle);
+        rotatedGroup.appendChild(pitchCircle);
+        rotatedGroup.appendChild(outerCircle);
+        
         // 將漸開線添加到旋轉群組中
-        const path = this.createSvgPath(involutePath, scale);
+        const path = this.createSvgPath(involutePath, scale, teeth);
         rotatedGroup.appendChild(path);
         
         // 將旋轉後的群組添加到主群組
@@ -237,10 +243,10 @@ class GearGenerator {
     }
 
     // 創建SVG路徑
-    createSvgPath(points, scale) {
+    createSvgPath(points, scale, teeth) {
         const group = document.createElementNS(this.svgNS, "g");
         
-        // 繪製漸開線路徑
+        // 繪製原始漸開線路徑（藍色）
         let pathData = `M ${points[0].x * scale},${points[0].y * scale}`;
         for (let i = 1; i < points.length; i++) {
             pathData += ` L ${points[i].x * scale},${points[i].y * scale}`;
@@ -252,6 +258,33 @@ class GearGenerator {
         path.setAttribute("stroke-width", "1");
         group.appendChild(path);
         
+        // 計算旋轉角度（180/齒數 度）
+        const rotationAngle = 180 / teeth;
+        
+        // 創建旋轉矩陣
+        const rotateMatrix = (angle, x, y) => {
+            const rad = angle * Math.PI / 180;
+            const cos = Math.cos(rad);
+            const sin = Math.sin(rad);
+            return {
+                x: x * cos - y * sin,
+                y: x * sin + y * cos
+            };
+        };
+        
+        // 繪製旋轉後的鏡射漸開線路徑（綠色）
+        let mirrorPathData = `M ${points[0].x * scale},${-points[0].y * scale}`;
+        for (let i = 1; i < points.length; i++) {
+            const rotated = rotateMatrix(rotationAngle, points[i].x, -points[i].y);
+            mirrorPathData += ` L ${rotated.x * scale},${rotated.y * scale}`;
+        }
+        const mirrorPath = document.createElementNS(this.svgNS, "path");
+        mirrorPath.setAttribute("d", mirrorPathData);
+        mirrorPath.setAttribute("stroke", "green");
+        mirrorPath.setAttribute("fill", "none");
+        mirrorPath.setAttribute("stroke-width", "1");
+        group.appendChild(mirrorPath);
+        
         // 在起點添加紅色圓點
         const startPoint = document.createElementNS(this.svgNS, "circle");
         startPoint.setAttribute("cx", points[0].x * scale);
@@ -259,6 +292,15 @@ class GearGenerator {
         startPoint.setAttribute("r", "2");
         startPoint.setAttribute("fill", "red");
         group.appendChild(startPoint);
+        
+        // 在旋轉後的鏡射起點添加紅色圓點
+        const rotatedStart = rotateMatrix(rotationAngle, points[0].x, -points[0].y);
+        const mirrorStartPoint = document.createElementNS(this.svgNS, "circle");
+        mirrorStartPoint.setAttribute("cx", rotatedStart.x * scale);
+        mirrorStartPoint.setAttribute("cy", rotatedStart.y * scale);
+        mirrorStartPoint.setAttribute("r", "2");
+        mirrorStartPoint.setAttribute("fill", "red");
+        group.appendChild(mirrorStartPoint);
         
         return group;
     }
