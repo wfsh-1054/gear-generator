@@ -11,6 +11,11 @@ class GearGenerator {
 
     // 1. 基本參數計算
     calculateGearParameters(module, teeth, pressureAngle) {
+        // 添加參數驗證
+        if (module <= 0) throw new Error('模數必須大於0');
+        if (teeth < 3) throw new Error('齒數必須大於等於3');
+        if (pressureAngle <= 0 || pressureAngle >= 45) throw new Error('壓力角必須在0-45度之間');
+        
         const pitchDiameter = module * teeth;           // 節圓直徑
         const addendum = module;                        // 齒頂高
         const dedendum = 1.25 * module;                 // 齒根高
@@ -110,8 +115,13 @@ class GearGenerator {
     }
 
     // 繪製齒輪
-    // 在drawGear方法中的文字說明部分
     drawGear(module, teeth, zoomFactor = 1.0, pressureAngle = 20) {
+        // 添加參數合理性檢查
+        if (zoomFactor <= 0) {
+            console.error('縮放因子必須大於0');
+            return;
+        }
+        
         const params = this.calculateGearParameters(module, teeth, pressureAngle);
         const scale = Math.min(250 / params.outerDiameter, 5) * zoomFactor;
         
@@ -178,7 +188,7 @@ class GearGenerator {
         rotatedGroup.appendChild(outerCircle);
         
         // 將漸開線添加到旋轉群組中
-        const path = this.createSvgPath(involutePath, scale, teeth);
+        const path = this.createSvgPath(involutePath, scale, teeth, pressureAngle); // 添加壓力角參數
         rotatedGroup.appendChild(path);
         
         // 將旋轉後的群組添加到主群組
@@ -280,7 +290,7 @@ class GearGenerator {
     }
 
     // 創建SVG路徑
-    createSvgPath(points, scale, teeth) {
+    createSvgPath(points, scale, teeth, pressureAngle = 20) {
         const group = document.createElementNS(this.svgNS, "g");
         
         // 創建單個齒形的群組
@@ -290,8 +300,8 @@ class GearGenerator {
         toothGroup.appendChild(this.createInvoluteCurve(points, scale, "blue"));
         
         // 找到漸開線與節圓的交點
-        const baseRadius = points[0].x; // 基圓半徑（漸開線起點的x座標）
-        const pitchRadius = baseRadius / Math.cos(20 * Math.PI / 180); // 節圓半徑
+        const baseRadius = points[0].x;
+        const pitchRadius = baseRadius / Math.cos(pressureAngle * Math.PI / 180);
         
         // 計算交點的展開角度
         const intersectAngle = Math.sqrt((pitchRadius/baseRadius)**2 - 1);
